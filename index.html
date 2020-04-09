@@ -8,7 +8,10 @@
   <script src="https://cdn.bootcss.com/js-cookie/2.2.1/js.cookie.min.js"></script>
   <script src="https://cdn.bootcss.com/axios/0.19.2/axios.min.js"></script>
 
+  <script src="https://res.wx.qq.com/open/js/jweixin-1.3.2.js"></script>
+  
   <script src="./js/data.js"></script>
+  <script src="./js/channel.js"></script>
   <link href="https://cdn.bootcss.com/weui/2.3.0/style/weui.min.css" rel="stylesheet">
   <title>操作指南</title>
   <style>
@@ -111,7 +114,7 @@
 
   <template id="List">
     <div>
-      <div class="weui-cells__title">推广视频</div>
+      <div class="weui-cells__title">一分钟了解美葡出行</div>
       <div class="weui-cells flex-center" style="padding: 20px 0">
         <video 
         controls
@@ -143,11 +146,6 @@
   </template>
   <template id="Detail">
     <div class="flex-center" style="height:100vh">
-      <!-- <img 
-      class="phone-frame"
-      :style="{height: phoneHeight + 'px'}"
-      src="" alt=""> -->
-
       <div 
       :style="{width: phoneWidth + 'px', height: phoneHeight + 'px'}"
       class="phone-body">
@@ -157,8 +155,12 @@
           <img 
           :style="{width: phoneBodyWidth + 'px'}"
           class="phone-body-content-img"
-          :src="'defaultImageUrl + type + '/' + (index + 1) + '.png'" alt="">
+          :src="defaultImageUrl + type + '/' + (index + 1) + '.png'" alt="">
 
+          <!-- 返回 -->
+          <div class="back-btn" @click="reduceIndex">
+            
+          </div>
           <!-- 标点 -->
           <div 
           :style="{top: pointTop + 'px', left: pointLeft + 'px'}"
@@ -175,6 +177,15 @@
       </div>
     </div>
   </template>
+  <style>
+    .back-btn{
+      top: 20px;
+      left: 0;
+      position: absolute;
+      height: 30px;
+      width: 30px;
+    }
+  </style>
 
   <template id="toast">
     <div class="js_dialog"
@@ -298,6 +309,7 @@
       position: absolute;
     }
     .phone-body-content{
+      overflow: hidden;
       position: absolute;
       background-color: rgba(0, 0, 255, .2);
     }
@@ -333,21 +345,33 @@
           learnList: []
         }
       },
+      methods:{
+        refresh () {
+          const logLearn = Cookies.get(LEARN_STEP)
+          let logLearnJson = {}
+          if (!logLearn || logLearn == null) {
+            Cookies.set(LEARN_STEP, JSON.stringify({lastTime: Date.now(), steps: {}}))
+          } else {
+            try {
+              logLearnJson = JSON.parse(logLearn)
+              this.learnList =  Object.keys(logLearnJson['steps'] || {}) || []
+              console.log(this.learnList)
+            }catch(e) {
+              console.error('不能解析cookie的值', e)
+            }
+          }
+          if (this.learnList.length  == this.list.length) {
+            channelPostMessage({
+              data: {
+                stepsOk: true
+              }
+            })
+          }
+        },
+      },
       mounted () {
         // logLearn = {lastTime: 1586401009660, steps: {upload: 1586401009660}}
-        const logLearn = Cookies.get(LEARN_STEP)
-        let logLearnJson = {}
-        if (!logLearn || logLearn == null) {
-          Cookies.set(LEARN_STEP, JSON.stringify({lastTime: Date.now(), steps: {}}))
-        } else {
-          try {
-            logLearnJson = JSON.parse(logLearn)
-            this.learnList =  Object.keys(logLearnJson['steps'] || {}) || []
-            console.log(this.learnList)
-          }catch(e) {
-            console.error('不能解析cookie的值', e)
-          }
-        }
+        this.refresh()
       }
     }
 
@@ -381,6 +405,14 @@
         hpx(h) {
           return h / 1758 * this.phoneHeight
         },
+        reduceIndex (e) {
+          if (this.index > 0) {
+            this.index = this.index - 1
+          }
+          
+          this.pointTop = this.hpx(this.list[this.type]['positions'][this.index]['y'])
+          this.pointLeft = this.wpx(this.list[this.type]['positions'][this.index]['x'])
+        },
         changeIndex(e) {
           if (this.index + 1 >= this.list[this.type]['positions'].length) {
             return this.$Modal({
@@ -400,7 +432,7 @@
                 console.error('不能解析cookie的值', e)
               }
             }).catch(e => {
-              this.index = 1
+              this.index = 0
             })
           }
           if (e) {
@@ -428,7 +460,6 @@
         this.type = this.$route.params.type
 
         this.changeIndex()
-        console.log(this.list[this.type].positions[this.index]['y'])
       }
     }
     // 路由
